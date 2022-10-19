@@ -97,7 +97,7 @@ vector<pair<string, uint32_t> > Searcher::search(vector<string>& portsToCheck)
 	{
 		SearchHelper* sh = (*it);
 
-		sh->finishedSearchingPort.wait();
+		sh->finishedSearchingPort.waitMs(5000);
 
 		if (sh->sensorFound)
 		{
