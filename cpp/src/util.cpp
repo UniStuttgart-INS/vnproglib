@@ -76,6 +76,10 @@ string str(AsciiAsync val)
 			return "VNISE";
 		case VNDTV:
 			return "VNDTV";
+		case VNG2S:
+			return "VNG2S";
+		case VNG2E:
+			return "VNG2E";
 		#ifdef INTERNAL
 		case VNRAW:
 			return "VNRAW";
@@ -175,6 +179,23 @@ ostream& operator<<(ostream& out, SensorError e)
 	return out;
 }
 
+string str(AsyncMode val)
+{
+	switch (val)
+	{
+		case ASYNCMODE_NONE:
+			 return "None";
+		case ASYNCMODE_PORT1:
+			 return "Port 1";
+		case ASYNCMODE_PORT2:
+			 return "Port 2";
+		case ASYNCMODE_BOTH:
+			 return "Both";
+		default:
+			throw invalid_argument("val");
+	}
+}
+
 string str(SyncInMode val)
 {
 	switch (val)
@@ -219,8 +240,8 @@ string str(SyncOutMode val)
 	{
 		case SYNCOUTMODE_NONE:
 			 return "None";
-		case SYNCOUTMODE_ITEMSTART:
-			 return "ItemStart";
+		case SYNCOUTMODE_IMUSTART:
+			 return "ImuStart";
 		case SYNCOUTMODE_IMUREADY:
 			 return "ImuReady";
 		case SYNCOUTMODE_INS:
@@ -609,6 +630,12 @@ string str(FoamInit val)
 		default:
 			throw invalid_argument("val");
 	}
+}
+
+ostream& operator<<(ostream& out, AsyncMode e)
+{
+	out << str(e);
+	return out;
 }
 
 ostream& operator<<(ostream& out, SyncInMode e)

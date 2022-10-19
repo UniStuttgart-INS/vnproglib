@@ -267,7 +267,7 @@ enum SyncOutMode
 	/// \brief None.
 	SYNCOUTMODE_NONE = 0,
 	/// \brief Trigger at start of IMU sampling.
-	SYNCOUTMODE_ITEMSTART = 1,
+	SYNCOUTMODE_IMUSTART = 1,
 	/// \brief Trigger when IMU measurements are available.
 	SYNCOUTMODE_IMUREADY = 2,
 	/// \brief Trigger when attitude measurements are available.
@@ -661,6 +661,48 @@ struct GnssDop
 /// \param[in] lhs Left-hand side enum value.
 /// \param[in] rhs Right-hand side enum value.
 /// \return The binary ORed value.
+CommonGroup& operator|=(CommonGroup& lhs, const CommonGroup& rhs);
+
+/// \brief Allows combining flags of the TimeGroup enum.
+///
+/// \param[in] lhs Left-hand side enum value.
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary ORed value.
+TimeGroup& operator|=(TimeGroup& lhs, const TimeGroup& rhs);
+
+/// \brief Allows combining flags of the ImuGroup enum.
+///
+/// \param[in] lhs Left-hand side enum value.
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary ORed value.
+ImuGroup& operator|=(ImuGroup& lhs, const ImuGroup& rhs);
+
+/// \brief Allows combining flags of the GpsGroup enum.
+///
+/// \param[in] lhs Left-hand side enum value.
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary ORed value.
+GpsGroup& operator|=(GpsGroup& lhs, const GpsGroup& rhs);
+
+/// \brief Allows combining flags of the AttitudeGroup enum.
+///
+/// \param[in] lhs Left-hand side enum value.
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary ORed value.
+AttitudeGroup& operator|=(AttitudeGroup& lhs, const AttitudeGroup& rhs);
+
+/// \brief Allows combining flags of the InsGroup enum.
+///
+/// \param[in] lhs Left-hand side enum value.
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary ORed value.
+InsGroup& operator|=(InsGroup& lhs, const InsGroup& rhs);
+
+/// \brief Allows combining flags of the CommonGroup enum.
+///
+/// \param[in] lhs Left-hand side enum value.
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary ORed value.
 CommonGroup operator|(CommonGroup lhs, CommonGroup rhs);
 
 /// \brief Allows combining flags of the TimeGroup enum.
@@ -697,6 +739,126 @@ AttitudeGroup operator|(AttitudeGroup lhs, AttitudeGroup rhs);
 /// \param[in] rhs Right-hand side enum value.
 /// \return The binary ORed value.
 InsGroup operator|(InsGroup lhs, InsGroup rhs);
+
+/// \brief Allows combining flags of the CommonGroup enum.
+///
+/// \param[in] lhs Left-hand side enum value.
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary ANDed value.
+CommonGroup& operator&=(CommonGroup& lhs, const CommonGroup& rhs);
+
+/// \brief Allows combining flags of the TimeGroup enum.
+///
+/// \param[in] lhs Left-hand side enum value.
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary ANDed value.
+TimeGroup& operator&=(TimeGroup& lhs, const TimeGroup& rhs);
+
+/// \brief Allows combining flags of the ImuGroup enum.
+///
+/// \param[in] lhs Left-hand side enum value.
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary ANDed value.
+ImuGroup& operator&=(ImuGroup& lhs, const ImuGroup& rhs);
+
+/// \brief Allows combining flags of the GpsGroup enum.
+///
+/// \param[in] lhs Left-hand side enum value.
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary ANDed value.
+GpsGroup& operator&=(GpsGroup& lhs, const GpsGroup& rhs);
+
+/// \brief Allows combining flags of the AttitudeGroup enum.
+///
+/// \param[in] lhs Left-hand side enum value.
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary ANDed value.
+AttitudeGroup& operator&=(AttitudeGroup& lhs, const AttitudeGroup& rhs);
+
+/// \brief Allows combining flags of the InsGroup enum.
+///
+/// \param[in] lhs Left-hand side enum value.
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary ANDed value.
+InsGroup& operator&=(InsGroup& lhs, const InsGroup& rhs);
+
+/// \brief Allows combining flags of the CommonGroup enum.
+///
+/// \param[in] lhs Left-hand side enum value.
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary ANDed value.
+CommonGroup operator&(CommonGroup lhs, CommonGroup rhs);
+
+/// \brief Allows combining flags of the TimeGroup enum.
+///
+/// \param[in] lhs Left-hand side enum value.
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary ANDed value.
+TimeGroup operator&(TimeGroup lhs, TimeGroup rhs);
+
+/// \brief Allows combining flags of the ImuGroup enum.
+///
+/// \param[in] lhs Left-hand side enum value.
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary ANDed value.
+ImuGroup operator&(ImuGroup lhs, ImuGroup rhs);
+
+/// \brief Allows combining flags of the GpsGroup enum.
+///
+/// \param[in] lhs Left-hand side enum value.
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary ANDed value.
+GpsGroup operator&(GpsGroup lhs, GpsGroup rhs);
+
+/// \brief Allows combining flags of the AttitudeGroup enum.
+///
+/// \param[in] lhs Left-hand side enum value.
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary ANDed value.
+AttitudeGroup operator&(AttitudeGroup lhs, AttitudeGroup rhs);
+
+/// \brief Allows combining flags of the InsGroup enum.
+///
+/// \param[in] lhs Left-hand side enum value.
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary ANDed value.
+InsGroup operator&(InsGroup lhs, InsGroup rhs);
+
+/// \brief Allows negating flags of the CommonGroup enum.
+///
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary NEGed value.
+CommonGroup operator~(CommonGroup rhs);
+
+/// \brief Allows negating flags of the TimeGroup enum.
+///
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary NEGed value.
+TimeGroup operator~(TimeGroup rhs);
+
+/// \brief Allows negating flags of the ImuGroup enum.
+///
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary NEGed value.
+ImuGroup operator~(ImuGroup rhs);
+
+/// \brief Allows negating flags of the GpsGroup enum.
+///
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary NEGed value.
+GpsGroup operator~(GpsGroup rhs);
+
+/// \brief Allows negating flags of the AttitudeGroup enum.
+///
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary NEGed value.
+AttitudeGroup operator~(AttitudeGroup rhs);
+
+/// \brief Allows negating flags of the InsGroup enum.
+///
+/// \param[in] rhs Right-hand side enum value.
+/// \return The binary NEGed value.
+InsGroup operator~(InsGroup rhs);
 
 }
 }

@@ -8,6 +8,7 @@
 
 #include <cassert>
 #include <iostream>
+#include <limits>
 
 #include "vector.h"
 #include "exceptions.h"
@@ -314,7 +315,7 @@ public:
 
 #if defined(_MSC_VER)
 	#pragma warning(push)
-	
+
 	// Disable warning about 'nonstandard extension used : nameless struct/union'.
 	#pragma warning(disable:4201)
 #endif
@@ -387,7 +388,7 @@ public:
 		e00(col0.x), e10(col1.x),
 		e01(col0.y), e11(col1.y)
 	{}
-		
+
 	// Helper Methods /////////////////////////////////////////////////////////
 
 public:
@@ -1551,6 +1552,31 @@ mat<m, n, T> operator-(mat<m, n, T> lhs, const mat<m, n, S>& rhs)
 	lhs -= rhs;
 
 	return lhs;
+}
+
+
+template <size_t m, size_t n, typename T, typename S>
+bool operator==(const mat<m, n, T>& lhs, const mat<m, n, S>& rhs)
+{
+    constexpr T EPSILON = 10.0 * std::numeric_limits<T>::epsilon();
+
+    for (size_t i = 0; i < m; i++)
+    {
+        for (size_t j = 0; j < n; j++)
+        {
+            if (std::abs(lhs.e[i * n + j] - rhs.e[i * n + j]) > EPSILON)
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+template <size_t m, size_t n, typename T, typename S>
+bool operator!=(const mat<m, n, T>& lhs, const mat<m, n, S>& rhs)
+{
+    return !(lhs == rhs);
 }
 
 // Specific Typedefs //////////////////////////////////////////////////////////

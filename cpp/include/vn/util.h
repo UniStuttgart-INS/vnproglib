@@ -45,6 +45,12 @@ std::string str(BootloaderError val);
 /// \return Reference to the current ostream.
 std::ostream& operator<<(std::ostream& out, SensorError e);
 
+/// \brief Converts a AsyncMode enum into a string.
+///
+/// \param[in] val The AsyncMode enum value to convert to string.
+/// \return The converted value.
+std::string str(AsyncMode val);
+
 /// \brief Converts a SyncInMode enum into a string.
 ///
 /// \param[in] val The SyncInMode enum value to convert to string.
@@ -213,6 +219,14 @@ std::string str(ExternalSensorMode val);
 /// \param[in] val The FoamInit enum value to convert to string.
 /// \return The converted value.
 std::string str(FoamInit val);
+
+/// \brief Overloads the ostream << operator for easy usage in displaying
+/// AsyncMode enums.
+///
+/// \param[in] out The ostream being output to.
+/// \param[in] e The enum to output to ostream.
+/// \return Reference to the current ostream.
+std::ostream& operator<<(std::ostream& out, AsyncMode e);
 
 /// \brief Overloads the ostream << operator for easy usage in displaying
 /// SyncInMode enums.

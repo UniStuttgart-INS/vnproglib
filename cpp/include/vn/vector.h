@@ -10,6 +10,7 @@
 #include <sstream>
 #include <ostream>
 #include <cmath>
+#include <limits>
 
 #include "exceptions.h"
 #include "int.h"
@@ -269,7 +270,7 @@ public:
 
 #if defined(_MSC_VER)
 	#pragma warning(push)
-	
+
 	// Disable warning about 'nonstandard extension used : nameless struct/union'.
 	#pragma warning(disable:4201)
 #endif
@@ -588,7 +589,7 @@ public:
 		vec<2, T> xy;
 
 		#endif
-		
+
 		/// \brief The vector's components.
 		T c[3];
 	};
@@ -1269,6 +1270,27 @@ vec<tdim, T> operator/(vec<tdim, T> lhs, const S& rhs)
 	lhs /= rhs;
 
 	return lhs;
+}
+
+template <size_t tdim, typename T, typename S>
+bool operator==(const vec<tdim, T>& lhs, const vec<tdim, S>& rhs)
+{
+    constexpr T EPSILON = 10.0 * std::numeric_limits<T>::epsilon();
+
+    for (size_t i = 0; i < tdim; i++)
+    {
+        if (std::abs(lhs.c[i] - rhs.c[i])> EPSILON)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+template <size_t tdim, typename T, typename S>
+bool operator!=(const vec<tdim, T>& lhs, const vec<tdim, S>& rhs)
+{
+    return !(lhs == rhs);
 }
 
 #if defined (_MSC_VER)
