@@ -157,6 +157,8 @@ enum GpsGroup
 	GPSGROUP_TIMEU				= 0x0800,	///< TimeU.
   GPSGROUP_TIMEINFO     = 0x1000,	///< TimeInfo.
   GPSGROUP_DOP          = 0x2000,	///< Dop.
+	GPSGROUP_SATINFO = 0x4000,      ///< SatInfo.
+	GPSGROUP_RAWMEAS = 0x00018000,  ///< RawMeas.
 };
 
 /// \brief Flags for the binary group 5 'Attitude' in the binary output registers.

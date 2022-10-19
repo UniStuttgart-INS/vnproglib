@@ -7,6 +7,8 @@
 #include "nocopy.h"
 #include "types.h"
 
+#include <array>
+
 namespace vn {
 namespace protocol {
 namespace uart {
@@ -15,8 +17,21 @@ namespace uart {
 /// sensor.
 struct vn_proglib_DLLEXPORT Packet
 {
+  private:
+    /// \brief Stores the return values when calculating the binary packet length and splitting
+    struct BinaryPacketInfo
+    {
+        size_t binaryPacketLength{10000}; ///< Length of the binary packet
+        size_t gnss1SatInfoOffset{10000}; ///< Byte Offset inside the payload till the GNSS1 SatInfo message starts
+        size_t gnss1RawMeasOffset{10000}; ///< Byte Offset inside the payload till the GNSS1 RawMeas message starts
+        size_t gnss2SatInfoOffset{10000}; ///< Byte Offset inside the payload till the GNSS2 SatInfo message starts
+        size_t gnss2RawMeasOffset{10000}; ///< Byte Offset inside the payload till the GNSS2 RawMeas message starts
+    };
+
+  public:
+
 	/// \brief Array containing sizes for the binary group fields.
-	static const unsigned char BinaryGroupLengths[sizeof(uint8_t)*8][sizeof(uint16_t)*15];
+	static const unsigned char BinaryGroupLengths[sizeof(uint8_t)*8][sizeof(uint16_t)*16];
 
 	/// \brief The different types of UART packets.
 	enum Type
@@ -124,14 +139,15 @@ struct vn_proglib_DLLEXPORT Packet
 	///     packet (i.e. the 0xFA character).
 	///
 	/// \return The number of bytes expected for this binary packet.
-	static size_t computeBinaryPacketLength(const char *startOfPossibleBinaryPacket); 
+	static BinaryPacketInfo computeBinaryPacketLengthAndSplitting(const char *startOfPossibleBinaryPacket);
 
 	/// \brief Computes the number of bytes expected for a binary group field.
 	///
 	/// \param[in] group The group to calculate the total for.
 	/// \param[in] groupField The flags for data types present.
+    /// \param[in] extensionBits Amount of extension bits set for this group
 	/// \return The number of bytes for this group.
-	static size_t computeNumOfBytesForBinaryGroupPayload(BinaryGroup group, uint16_t groupField);
+	static size_t computeNumOfBytesForBinaryGroupPayload(BinaryGroup group, uint16_t groupField, size_t extensionBits = 0);
 
 	/// \brief Parses an error packet to get the error type.
 	///
@@ -173,6 +189,12 @@ struct vn_proglib_DLLEXPORT Packet
 	/// \return The extracted value.
 	uint16_t extractUint16();
 
+	/// \brief Extracts a int16_t data type from a binary packet and advances
+	/// the next extraction point appropriately.
+	///
+	/// \return The extracted value.
+	int8_t extractInt16();
+
 	/// \brief Extracts a uint32_t data type from a binary packet and advances
 	/// the next extraction point appropriately.
 	///
@@ -185,11 +207,17 @@ struct vn_proglib_DLLEXPORT Packet
 	/// \return The extracted value.
 	uint64_t extractUint64();
 
-	/// \brief Extracts a float fdata type from a binary packet and advances
+	/// \brief Extracts a float data type from a binary packet and advances
 	/// the next extraction point appropriately.
 	///
 	/// \return The extracted value.
 	float extractFloat();
+
+	/// \brief Extracts a double data type from a binary packet and advances
+	/// the next extraction point appropriately.
+	///
+	/// \return The extracted value.
+	double extractDouble();
 
 	/// \brief Extracts a vec3f data type from a binary packet and advances
 	/// the next extraction point appropriately.
@@ -836,9 +864,9 @@ struct vn_proglib_DLLEXPORT Packet
 	/// \param[in] heaveCutoffFreq Value for the heaveCutoffFreq field.
 	/// \param[in] heaveRateCutoffFreq Value for the heaveRateCutoffFreq field.
 	/// \return The total number bytes in the generated command.
-	static size_t genWriteHeaveConfiguration(ErrorDetectionMode errorDetectionMode,char *buffer, size_t size, 
-							float initialWavePeriod, 
-							float initialWaveAmplitude, 
+	static size_t genWriteHeaveConfiguration(ErrorDetectionMode errorDetectionMode,char *buffer, size_t size,
+							float initialWavePeriod,
+							float initialWaveAmplitude,
 							float maxWavePeriod,
 							float minWaveAmplitude,
 							float delayedHeaveCutoffFreq,
@@ -1497,14 +1525,14 @@ struct vn_proglib_DLLEXPORT Packet
 	///
 	/// \param[out] angularRate The angular rate values in the packet.
 	void parseVNGYR(vn::math::vec3f *angularRate);
-	
+
 	/// \brief Parses a VNMAR asynchronous packet.
 	///
 	/// \param[out] magnetic The magnetic values in the packet.
 	/// \param[out] acceleration The acceleration values in the packet.
 	/// \param[out] angularRate The angular rate values in the packet.
 	void parseVNMAR(vn::math::vec3f *magnetic, vn::math::vec3f *acceleration, vn::math::vec3f *angularRate);
-	
+
 	/// \brief Parses a VNYMR asynchronous packet.
 	///
 	/// \param[out] yawPitchRoll The yaw, pitch, roll values in the packet.
@@ -1512,7 +1540,7 @@ struct vn_proglib_DLLEXPORT Packet
 	/// \param[out] acceleration The acceleration values in the packet.
 	/// \param[out] angularRate The angular rate values in the packet.
 	void parseVNYMR(vn::math::vec3f *yawPitchRoll, vn::math::vec3f *magnetic, vn::math::vec3f *acceleration, vn::math::vec3f *angularRate);
-	
+
 	#ifdef INTERNAL
 
 	/// \brief Parses a VNYCM asynchronous packet.
@@ -1573,7 +1601,7 @@ struct vn_proglib_DLLEXPORT Packet
 	/// \param[out] speedAcc The SpeedAcc value in the packet.
 	/// \param[out] timeAcc The TimeAcc value in the packet.
 	void parseVNGPS(double *time, uint16_t *week, uint8_t *gpsFix, uint8_t *numSats, vn::math::vec3d *lla, vn::math::vec3f *nedVel, vn::math::vec3f *nedAcc, float *speedAcc, float *timeAcc);
-	
+
 	/// \brief Parses a VNINS asynchronous packet.
 	///
 	/// \param[out] time The time value in the packet.
@@ -1586,7 +1614,7 @@ struct vn_proglib_DLLEXPORT Packet
 	/// \param[out] posUncertainty The position uncertainty value in the packet.
 	/// \param[out] velUncertainty The velocity uncertainty value in the packet.
 	void parseVNINS(double *time, uint16_t *week, uint16_t *status, vn::math::vec3f *yawPitchRoll, vn::math::vec3d *lla, vn::math::vec3f *nedVel, float *attUncertainty, float *posUncertainty, float *velUncertainty);
-	
+
 	/// \brief Parses a VNINE asynchronous packet.
 	///
 	/// \param[out] time The time value in the packet.
@@ -1617,7 +1645,7 @@ struct vn_proglib_DLLEXPORT Packet
 	/// \param[out] acceleration The acceleration values in the packet.
 	/// \param[out] angularRate The angular rate values in the packet.
 	void parseVNISE(vn::math::vec3f* ypr, vn::math::vec3d* position, vn::math::vec3f* velocity, vn::math::vec3f* acceleration, vn::math::vec3f* angularRate);
-		
+
 	#ifdef INTERNAL
 
 	/// \brief Parses a VNRAW asynchronous packet.
@@ -1873,11 +1901,11 @@ struct vn_proglib_DLLEXPORT Packet
 	void parseFilterBasicControl(uint8_t* magMode, uint8_t* extMagMode, uint8_t* extAccMode, uint8_t* extGyroMode, vn::math::vec3f* gyroLimit);
 
 	// Added by jesperh 2021-02-09
-	void parseHeaveConfiguration(	
-		float* initialWavePeriod, 
-		float* initialWaveAmplitude, 
+	void parseHeaveConfiguration(
+		float* initialWavePeriod,
+		float* initialWaveAmplitude,
 		float* maxWavePeriod,
-		float* minWaveAmplitude,	
+		float* minWaveAmplitude,
 		float* delayedHeaveCutoffFreq,
 		float* heaveCutoffFreq,
 		float* heaveRateCutoffFreq);
@@ -2196,6 +2224,12 @@ struct vn_proglib_DLLEXPORT Packet
 	void parseYawPitchRollTrueInertialAccelerationAndAngularRates(vn::math::vec3f* yawPitchRoll, vn::math::vec3f* inertialAccel, vn::math::vec3f* gyro);
 
 	/// \}
+
+    /// \brief Get the Packet Length
+    size_t getPacketLength();
+
+    /// \brief Get the Current Extract Location
+    size_t getCurExtractLoc();
 
 private:
 

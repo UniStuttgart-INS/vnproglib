@@ -162,7 +162,7 @@ struct VnSensor::Impl
 		//{
 		//	python::AcquireGIL scopedLock;
 		//
-		//	boost::python::call<void>(_asyncPacketReceivedHandlerPython, boost::ref(asciiPacket), runningIndex);	
+		//	boost::python::call<void>(_asyncPacketReceivedHandlerPython, boost::ref(asciiPacket), runningIndex);
 		//}
 		//#endif
 	}
@@ -247,7 +247,7 @@ struct VnSensor::Impl
 			vector<char> pRawData(readBuffer, readBuffer + numOfBytesRead);
 
 			python::AcquireGIL scopedLock;
-				
+
 			boost::python::call<void>(pi->_rawDataReceivedHandlerPython, pRawData, pi->_dataRunningIndex);
 		}
 		#endif
@@ -269,7 +269,7 @@ struct VnSensor::Impl
 			#pragma warning(push)
 			#pragma warning(disable:4996)
 		#endif
-		
+
 		if (_sendErrorDetectionMode == ERRORDETECTIONMODE_CHECKSUM)
 		{
 			length += sprintf(toSend + length, "%02X\r\n", Checksum8::compute(toSend + 1, length - 2));
@@ -508,12 +508,19 @@ struct VnSensor::Impl
 			#else
 			length += sprintf(toSend + length, ",%X", fields.imuField);
 			#endif
-		if (fields.gpsField)
+		if (fields.gpsField) {
 			#if VN_HAVE_SECURE_CRT
-			length += sprintf_s(toSend + length, sizeof(toSend) - length, ",%X", fields.gpsField);
+            if (fields.gpsField & 0x8000)
+			    length += sprintf_s(toSend + length, sizeof(toSend) - length, ",%X,%X", fields.gpsField & 0xFFFF, (fields.gpsField & 0xFFFF0000) >> 16);
+            else
+			    length += sprintf_s(toSend + length, sizeof(toSend) - length, ",%X", fields.gpsField);
 			#else
-			length += sprintf(toSend + length, ",%X", fields.gpsField);
+            if (fields.gpsField & 0x8000)
+                length += sprintf(toSend + length, ",%X,%X", fields.gpsField & 0xFFFF, (fields.gpsField & 0xFFFF0000) >> 16);
+            else
+                length += sprintf(toSend + length, ",%X", fields.gpsField);
 			#endif
+        }
 		if (fields.attitudeField)
 			#if VN_HAVE_SECURE_CRT
 			length += sprintf_s(toSend + length, sizeof(toSend) - length, ",%X", fields.attitudeField);
@@ -526,12 +533,19 @@ struct VnSensor::Impl
 			#else
 			length += sprintf(toSend + length, ",%X", fields.insField);
 			#endif
-    if(fields.gps2Field)
+    if(fields.gps2Field) {
       #if VN_HAVE_SECURE_CRT
-      length += sprintf_s(toSend + length, sizeof(toSend) - length, ",%X", fields.gps2Field);
+      if (fields.gps2Field & 0x8000)
+        length += sprintf_s(toSend + length, sizeof(toSend) - length, ",%X,%X", fields.gps2Field & 0xFFFF, (fields.gps2Field & 0xFFFF0000) >> 16);
+      else
+        length += sprintf_s(toSend + length, sizeof(toSend) - length, ",%X", fields.gps2Field);
       #else
-      length += sprintf(toSend + length, ",%X", fields.gps2Field);
+      if (fields.gps2Field & 0x8000)
+        length += sprintf(toSend + length, ",%X,%X", fields.gps2Field & 0xFFFF, (fields.gps2Field & 0xFFFF0000) >> 16);
+      else
+        length += sprintf(toSend + length, ",%X", fields.gps2Field);
       #endif
+    }
 
 		#if VN_HAVE_SECURE_CRT
 		length += sprintf_s(toSend + length, sizeof(toSend) - length, "*");
@@ -567,7 +581,7 @@ vector<uint32_t> VnSensor::supportedBaudrates()
 
 VnSensor::VnSensor() :
 	_pi(new Impl(this))
-{ 
+{
 	firmwareUpdateFile = NULL;
 	bootloaderFiltering = false;
 }
@@ -2095,9 +2109,9 @@ void VnSensor::writeHeaveConfiguration(HeaveConfigurationRegister &fields, bool 
 {
 	char toSend[256];
 
-	size_t length = Packet::genWriteHeaveConfiguration(_pi->_sendErrorDetectionMode, toSend, sizeof(toSend), 
-													fields.initialWavePeriod, 
-													fields.initialWaveAmplitude, 
+	size_t length = Packet::genWriteHeaveConfiguration(_pi->_sendErrorDetectionMode, toSend, sizeof(toSend),
+													fields.initialWavePeriod,
+													fields.initialWaveAmplitude,
 													fields.maxWavePeriod,
 													fields.minWaveAmplitude,
 													fields.delayedHeaveCutoffFreq,
@@ -2120,9 +2134,9 @@ void VnSensor::writeHeaveConfiguration(
 {
 	char toSend[256];
 
-	size_t length = Packet::genWriteHeaveConfiguration(_pi->_sendErrorDetectionMode, toSend, sizeof(toSend), 
-													initialWavePeriod, 
-													initialWaveAmplitude, 
+	size_t length = Packet::genWriteHeaveConfiguration(_pi->_sendErrorDetectionMode, toSend, sizeof(toSend),
+													initialWavePeriod,
+													initialWaveAmplitude,
 													maxWavePeriod,
 													minWaveAmplitude,
 													delayedHeaveCutoffFreq,
@@ -3519,7 +3533,7 @@ void VnSensor::switchProcessors(VnProcessorType processor, std::string model, st
 			}
 			break;
 		}
-	} 
+	}
 	else if ((model.find("VN-110") != std::string::npos) || (model.find("VN-210") != std::string::npos) || (model.find("VN-310") != std::string::npos))
 	{
 		switch (processor)
@@ -3564,10 +3578,10 @@ void VnSensor::switchProcessors(VnProcessorType processor, std::string model, st
 void VnSensor::firmwareUpdate(int baudRate, std::string fileName)
 {
 	std::string record = "";
-	
+
 	// Open firmware update file
 	openFirmwareUpdateFile(fileName);
-	
+
 	// Enter bootloader mode
 	firmwareUpdateMode(true);
 
@@ -3581,7 +3595,7 @@ void VnSensor::firmwareUpdate(int baudRate, std::string fileName)
 	// Calibrate the bootloader by letting it calculate the current baudrate.
 	std::string bootloaderVersion = calibrateBootloader();
 	//cout << bootloaderVersion << endl;
-	
+
 	// Send each record from the firmware update file one at a time
 	do
 	{
@@ -3592,13 +3606,13 @@ void VnSensor::firmwareUpdate(int baudRate, std::string fileName)
 			writeFirmwareUpdateRecord(record, true);
 		}
 	} while (!record.empty());
-	
+
 	// Close firmware update file
 	closeFirmwareUpdateFile();
-	
+
 	// Reset baudrate
 	setFirmwareUpdateBaudRate(navBaudRate);
-	
+
 	// Exit bootloader mode. Just sleep for 10 seconds
 	Thread::sleepSec(10);
 

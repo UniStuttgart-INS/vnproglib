@@ -28,6 +28,14 @@ struct BinaryTracker
 	uint8_t groupsPresent;
 	uint8_t numOfBytesRemainingToHaveAllGroupFields;
 	size_t numOfBytesRemainingForCompletePacket;
+    uint8_t gnss1SatInfoNumSats{};
+    uint8_t gnss1RawMeasNumSats{};
+    uint8_t gnss2SatInfoNumSats{};
+    uint8_t gnss2RawMeasNumSats{};
+    size_t gnss1SatInfoOffset{ 100000 };
+    size_t gnss1RawMeasOffset{ 100000 };
+    size_t gnss2SatInfoOffset{ 100000 };
+    size_t gnss2RawMeasOffset{ 100000 };
 	bool startFoundInProvidedDataBuffer;
 	size_t runningDataIndexOfStart;
 	vn::xplat::TimeStamp timeFound;
@@ -54,13 +62,13 @@ bool operator==(const BinaryTracker& lhs, const BinaryTracker& rhs)
 
 struct PacketFinder::Impl
 {
-	static const size_t DefaultReceiveBufferSize = 1200;
+	static const size_t DefaultReceiveBufferSize = 4048;
 	static const uint8_t AsciiStartChar = '$';
 	static const uint8_t BootloaderVersionStartChar = 'V';
 	static const uint8_t BinaryStartChar = 0xFA;
 	static const uint8_t AsciiEndChar1 = '\r';
 	static const uint8_t AsciiEndChar2 = '\n';
-	static const size_t MaximumSizeExpectedForBinaryPacket = 600;
+	static const size_t MaximumSizeExpectedForBinaryPacket = 4048;
 	static const size_t MaximumSizeForBinaryStartAndAllGroupData = 18;
 	static const size_t MaximumSizeForAsciiPacket = 256;
 
@@ -196,10 +204,10 @@ struct PacketFinder::Impl
 							// through to reset tracking.
 						}
 					}
-					
+
 					if (packetLength > MaximumSizeForAsciiPacket) // confirm valid packet length
 						packetLength = 0;
-					
+
 					Packet p(reinterpret_cast<char*>(startOfAsciiPacket), packetLength);
 
 					if (p.isValid())
@@ -249,6 +257,17 @@ struct PacketFinder::Impl
 					// We found another byte belonging to this possible binary packet.
 					ez.numOfBytesRemainingToHaveAllGroupFields--;
 
+                    if ((ez.startFoundInProvidedDataBuffer && (i - ez.possibleStartIndex) % 2 == 0)
+                        || (!ez.startFoundInProvidedDataBuffer && (_bufferAppendLocation + i - ez.possibleStartIndex) % 2 == 0))
+                    {
+                        uint16_t groupField = stoh(*reinterpret_cast<const uint16_t*>(data + i));
+                        if(groupField & 0x8000) // Extension bit is set
+                        {
+                            ez.numOfBytesRemainingToHaveAllGroupFields += 2;
+                        }
+                    }
+
+
 					if (ez.numOfBytesRemainingToHaveAllGroupFields == 0)
 					{
 						// We have all of the group fields now.
@@ -256,7 +275,12 @@ struct PacketFinder::Impl
 						if (ez.startFoundInProvidedDataBuffer)
 						{
 							size_t headerLength = i - ez.possibleStartIndex + 1;
-							remainingBytesForCompletePacket = Packet::computeBinaryPacketLength(reinterpret_cast<char*>(data) + ez.possibleStartIndex) - headerLength;
+                            auto packetInfo = Packet::computeBinaryPacketLengthAndSplitting(reinterpret_cast<char*>(data) + ez.possibleStartIndex);
+                            ez.gnss1SatInfoOffset = packetInfo.gnss1SatInfoOffset;
+                            ez.gnss1RawMeasOffset = packetInfo.gnss1RawMeasOffset + 10; // 8 tow, 2 week
+                            ez.gnss2SatInfoOffset = packetInfo.gnss2SatInfoOffset;
+                            ez.gnss2RawMeasOffset = packetInfo.gnss2RawMeasOffset + 10; // 8 tow, 2 week
+							remainingBytesForCompletePacket = packetInfo.binaryPacketLength - headerLength;
 						}
 						else
 						{
@@ -272,7 +296,12 @@ struct PacketFinder::Impl
 							{
 								std::memcpy(_buffer + _bufferAppendLocation, data, numOfBytesToCopyIntoReceiveBuffer);
 
-								remainingBytesForCompletePacket = Packet::computeBinaryPacketLength(reinterpret_cast<char*>(_buffer) + ez.possibleStartIndex) - headerLength;
+                                auto packetInfo = Packet::computeBinaryPacketLengthAndSplitting(reinterpret_cast<char*>(_buffer) + ez.possibleStartIndex);
+                                ez.gnss1SatInfoOffset = packetInfo.gnss1SatInfoOffset;
+                                ez.gnss1RawMeasOffset = packetInfo.gnss1RawMeasOffset + 10; // 8 tow, 2 week
+                                ez.gnss2SatInfoOffset = packetInfo.gnss2SatInfoOffset;
+                                ez.gnss2RawMeasOffset = packetInfo.gnss2RawMeasOffset + 10; // 8 tow, 2 week
+								remainingBytesForCompletePacket = packetInfo.binaryPacketLength - headerLength;
 							}
 							else
 							{
@@ -302,7 +331,42 @@ struct PacketFinder::Impl
 
 				// We are currently collecting data for our packet.
 
+                if (ez.gnss1SatInfoOffset == 0)
+                {
+                    ez.gnss1SatInfoNumSats = data[i];
+                    ez.numOfBytesRemainingForCompletePacket += ez.gnss1SatInfoNumSats * 8;
+                    ez.gnss1RawMeasOffset += ez.gnss1SatInfoNumSats * 8;
+                    ez.gnss2SatInfoOffset += ez.gnss1SatInfoNumSats * 8;
+                    ez.gnss2RawMeasOffset += ez.gnss1SatInfoNumSats * 8;
+                    ez.gnss1SatInfoOffset = MaximumSizeExpectedForBinaryPacket;
+                }
+                if (ez.gnss1RawMeasOffset == 0)
+                {
+                    ez.gnss1RawMeasNumSats = data[i];
+                    ez.numOfBytesRemainingForCompletePacket += ez.gnss1RawMeasNumSats * 28;
+                    ez.gnss2SatInfoOffset += ez.gnss1RawMeasNumSats * 28;
+                    ez.gnss2RawMeasOffset += ez.gnss1RawMeasNumSats * 28;
+                    ez.gnss1RawMeasOffset = MaximumSizeExpectedForBinaryPacket;
+                }
+                if (ez.gnss2SatInfoOffset == 0)
+                {
+                    ez.gnss2SatInfoNumSats = data[i];
+                    ez.numOfBytesRemainingForCompletePacket += ez.gnss2SatInfoNumSats * 8;
+                    ez.gnss2RawMeasOffset += ez.gnss2SatInfoNumSats * 8;
+                    ez.gnss2SatInfoOffset = MaximumSizeExpectedForBinaryPacket;
+                }
+                if (ez.gnss2RawMeasOffset == 0)
+                {
+                    ez.gnss2RawMeasNumSats = data[i];
+                    ez.numOfBytesRemainingForCompletePacket += ez.gnss2RawMeasNumSats * 28;
+                    ez.gnss2RawMeasOffset = MaximumSizeExpectedForBinaryPacket;
+                }
+
 				ez.numOfBytesRemainingForCompletePacket--;
+                ez.gnss1SatInfoOffset--;
+                ez.gnss1RawMeasOffset--;
+                ez.gnss2SatInfoOffset--;
+                ez.gnss2RawMeasOffset--;
 
 				if (ez.numOfBytesRemainingForCompletePacket == 0)
 				{

@@ -44,15 +44,18 @@ namespace uart {
 
 char* vnstrtok(char* str, size_t& startIndex);
 
-const unsigned char Packet::BinaryGroupLengths[sizeof(uint8_t)*8][sizeof(uint16_t)*15] = {
-	{ 8,  8,  8, 12, 16, 12, 24, 12, 12, 24, 20, 28,  2,  4,  8},		// Group 1
-	{ 8,  8,  8,  2,  8,  8,  8,  4,  4,  1,  0,  0,  0,  0,  0},		// Group 2
-	{ 2, 12, 12, 12,  4,  4, 16, 12, 12, 12, 12,  2, 40,  0,  0},		// Group 3
-	{ 8,  8,  2,  1,  1, 24, 24, 12, 12, 12,  4,  4,  2, 28,  0},		// Group 4
-	{ 2, 12, 16, 36, 12, 12, 12, 12, 12, 12, 28, 24,  12,  0,  0},		// Group 5
-	{ 2, 24, 24, 12, 12, 12, 12, 12, 12,  4,  4, 68, 64,  0,  0},		// Group 6
-	{ 8,  8,  2,  1,  1, 24, 24, 12, 12, 12,  4,  4,  2, 28,  0},		// Group 7
-	{ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0}		// Invalid group
+const unsigned char Packet::BinaryGroupLengths[sizeof(uint8_t)*8][sizeof(uint16_t)*16] = {
+   // 1   2   3   4   5   6   7   8   9  10  11  12  13  14  15      16    Field
+   // 0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15   0    Index
+   // 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   |   1    Extension Bit
+	{ 8,  8,  8, 12, 16, 12, 24, 12, 12, 24, 20, 28,  2,  4,  8,  0,  0},		// Group 1 (Common)
+	{ 8,  8,  8,  2,  8,  8,  8,  4,  4,  1,  0,  0,  0,  0,  0,  0,  0},		// Group 2 (Time)
+	{ 2, 12, 12, 12,  4,  4, 16, 12, 12, 12, 12,  2, 40,  0,  0,  0,  0},		// Group 3 (IMU)
+	{ 8,  8,  2,  1,  1, 24, 24, 12, 12, 12,  4,  4,  2, 28,  2,  0, 12},		// Group 4 (GNSS1)
+	{ 2, 12, 16, 36, 12, 12, 12, 12, 12, 12, 28, 24, 12,  0,  0,  0,  0},		// Group 5 (Attitude)
+	{ 2, 24, 24, 12, 12, 12, 12, 12, 12,  4,  4, 68, 64,  0,  0,  0,  0},		// Group 6 (INS)
+	{ 8,  8,  2,  1,  1, 24, 24, 12, 12, 12,  4,  4,  2, 28,  2,  0, 12},		// Group 7 (GNSS2)
+	{ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0} 		// Invalid group
 };
 
 Packet::Packet() :
@@ -481,11 +484,20 @@ bool Packet::isCompatible(CommonGroup commonGroup, TimeGroup timeGroup, ImuGroup
 
 	if (gpsGroup)
 	{
-		if (*reinterpret_cast<uint16_t*>(curField) != gpsGroup)
+		if (*reinterpret_cast<uint16_t*>(curField) != (gpsGroup & 0xFFFF))
 			// Not the expected collection of field data types.
 			return false;
 
 		curField += 2;
+
+        if (*reinterpret_cast<uint16_t*>(curField - 2) & 0x8000) // Extension bit is set
+        {
+            if (*reinterpret_cast<uint16_t*>(curField) != (gpsGroup & 0xFFFF0000) >> 16)
+                // Not the expected collection of field data types.
+                return false;
+
+            curField += 2;
+        }
 	}
 	else if (groups & 0x08)
 	{
@@ -522,11 +534,20 @@ bool Packet::isCompatible(CommonGroup commonGroup, TimeGroup timeGroup, ImuGroup
 	}
 
   if(gps2Group) {
-    if(*reinterpret_cast<uint16_t*>(curField) != gps2Group)
+    if(*reinterpret_cast<uint16_t*>(curField) != (gps2Group & 0xFFFF))
       // Not the expected collection of field data types.
       return false;
 
     curField += 2;
+
+    if (*reinterpret_cast<uint16_t*>(curField - 2) & 0x8000) // Extension bit is set
+    {
+        if (*reinterpret_cast<uint16_t*>(curField) != (gps2Group & 0xFFFF0000) >> 16)
+            // Not the expected collection of field data types.
+            return false;
+
+        curField += 2;
+    }
   } else if(groups & 0x40) {
     // There is unexpected GPS2 Group data.
     return false;
@@ -556,14 +577,14 @@ char* vnstrtok(char* str, size_t& startIndex)
 
 	if (str[startIndex-1] == '*') // attempting to read too many fields
 		return NULL;
-		
+
 	while (str[startIndex] != ',' && str[startIndex] != '*')
 	{
 		if((str[startIndex] < ' ') || (str[startIndex] > '~') || (str[startIndex] == '$')) // check for garbage characters
 			return NULL;
 		startIndex++;
 	}
-	
+
 	str[startIndex++] = '\0';
 
 	return str + origIndex;
@@ -572,8 +593,18 @@ char* vnstrtok(char* str, size_t& startIndex)
 void Packet::ensureCanExtract(size_t numOfBytes)
 {
 	if (_curExtractLoc == 0)
+    {
 		// Determine the location to start extracting.
-		_curExtractLoc = countSetBits(_data[1]) * 2 + 2;
+        uint8_t nGroups = countSetBits(_data[1]);
+        for (size_t i = 0; i < nGroups; i++)
+        {
+            uint16_t groupField = *reinterpret_cast<uint16_t*>(_data + 2 + i * 2);
+            if (groupField & 0x8000) // Extension bit is set
+                nGroups++;
+        }
+
+		_curExtractLoc = nGroups * 2 + 2;
+    }
 
 	if (_curExtractLoc + numOfBytes > _length - 2)
 		// About to overrun data.
@@ -615,6 +646,17 @@ uint16_t Packet::extractUint16()
 	return stoh(d);
 }
 
+int8_t Packet::extractInt16()
+{
+	ensureCanExtract(sizeof(int16_t));
+
+	int16_t d = *reinterpret_cast<int16_t*>(_data + _curExtractLoc);
+
+	_curExtractLoc += sizeof(int16_t);
+
+	return d;
+}
+
 uint32_t Packet::extractUint32()
 {
 	ensureCanExtract(sizeof(uint32_t));
@@ -652,6 +694,19 @@ float Packet::extractFloat()
 	_curExtractLoc += sizeof(float);
 
 	return f;
+}
+
+double Packet::extractDouble()
+{
+	ensureCanExtract(sizeof(double));
+
+	double d;
+
+	memcpy(&d, _data + _curExtractLoc, sizeof(double));
+
+	_curExtractLoc += sizeof(double);
+
+	return d;
 }
 
 vec3f Packet::extractVec3f()
@@ -1582,9 +1637,9 @@ size_t Packet::genReadHeaveConfiguration(ErrorDetectionMode errorDetectionMode, 
 	return finalizeCommand(errorDetectionMode, buffer, length);
 }
 
-size_t Packet::genWriteHeaveConfiguration(ErrorDetectionMode errorDetectionMode, char *buffer, size_t size, 
-							float initialWavePeriod, 
-							float initialWaveAmplitude, 
+size_t Packet::genWriteHeaveConfiguration(ErrorDetectionMode errorDetectionMode, char *buffer, size_t size,
+							float initialWavePeriod,
+							float initialWaveAmplitude,
 							float maxWavePeriod,
 							float minWaveAmplitude,
 							float delayedHeaveCutoffFreq,
@@ -2207,7 +2262,7 @@ size_t Packet::genReadDeltaThetaAndDeltaVelocityConfiguration(ErrorDetectionMode
 
 size_t Packet::genWriteDeltaThetaAndDeltaVelocityConfiguration(ErrorDetectionMode errorDetectionMode, char *buffer, size_t size, uint8_t integrationFrame, uint8_t gyroCompensation, uint8_t accelCompensation)
 {
-	return genWriteDeltaThetaAndDeltaVelocityConfiguration(errorDetectionMode, buffer, size, integrationFrame, gyroCompensation, accelCompensation, 0);	
+	return genWriteDeltaThetaAndDeltaVelocityConfiguration(errorDetectionMode, buffer, size, integrationFrame, gyroCompensation, accelCompensation, 0);
 }
 
 size_t Packet::genWriteDeltaThetaAndDeltaVelocityConfiguration(ErrorDetectionMode errorDetectionMode, char *buffer, size_t size, uint8_t integrationFrame, uint8_t gyroCompensation, uint8_t accelCompensation, uint8_t earthRateCorrection)
@@ -2984,58 +3039,117 @@ void Packet::parseVNDTV(float* deltaTime, vec3f* deltaTheta, vec3f* deltaVelocit
 	deltaVelocity->z = ATOFF;
 }
 
-size_t Packet::computeBinaryPacketLength(char const* startOfPossibleBinaryPacket)
+Packet::BinaryPacketInfo Packet::computeBinaryPacketLengthAndSplitting(char const* startOfPossibleBinaryPacket)
 {
+    BinaryPacketInfo packetInfo;
+
 	char groupsPresent = startOfPossibleBinaryPacket[1];
 	size_t runningPayloadLength = 2;	// Start of packet character plus groups present field.
+	size_t runningPayloadOffset = 0;
 	const char* pCurrentGroupField = startOfPossibleBinaryPacket + 2;
 
-	if (groupsPresent & 0x01)
+	if (groupsPresent & BINARYGROUP_COMMON)
 	{
-		runningPayloadLength += 2 + computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_COMMON, stoh(*reinterpret_cast<const uint16_t*>(pCurrentGroupField)));
+        size_t payloadSize = computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_COMMON, stoh(*reinterpret_cast<const uint16_t*>(pCurrentGroupField)));
+        runningPayloadOffset += payloadSize;
+		runningPayloadLength += 2 + payloadSize;
 		pCurrentGroupField += 2;
 	}
 
-	if (groupsPresent & 0x02)
+	if (groupsPresent & BINARYGROUP_TIME)
 	{
-		runningPayloadLength += 2 + computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_TIME, stoh(*reinterpret_cast<const uint16_t*>(pCurrentGroupField)));
+        size_t payloadSize = computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_TIME, stoh(*reinterpret_cast<const uint16_t*>(pCurrentGroupField)));
+        runningPayloadOffset += payloadSize;
+		runningPayloadLength += 2 + payloadSize;
 		pCurrentGroupField += 2;
 	}
 
-	if (groupsPresent & 0x04)
+	if (groupsPresent & BINARYGROUP_IMU)
 	{
-		runningPayloadLength += 2 + computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_IMU, stoh(*reinterpret_cast<const uint16_t*>(pCurrentGroupField)));
+        size_t payloadSize = computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_IMU, stoh(*reinterpret_cast<const uint16_t*>(pCurrentGroupField)));
+        runningPayloadOffset += payloadSize;
+		runningPayloadLength += 2 + payloadSize;
 		pCurrentGroupField += 2;
 	}
 
-	if (groupsPresent & 0x08)
+	if (groupsPresent & BINARYGROUP_GPS)
 	{
-		runningPayloadLength += 2 + computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_GPS, stoh(*reinterpret_cast<const uint16_t*>(pCurrentGroupField)));
+        uint16_t groupField = stoh(*reinterpret_cast<const uint16_t*>(pCurrentGroupField));
+        size_t payloadSize = computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_GPS, groupField);
+        runningPayloadOffset += payloadSize;
+		runningPayloadLength += 2 + payloadSize;
+		pCurrentGroupField += 2;
+
+        if (groupField & GPSGROUP_SATINFO)
+        {
+            packetInfo.gnss1SatInfoOffset = runningPayloadOffset - BinaryGroupLengths[3][14];
+        }
+
+        if (groupField & 0x8000) // Extension bit is set
+        {
+            groupField = stoh(*reinterpret_cast<const uint16_t*>(pCurrentGroupField));
+            payloadSize = computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_GPS, groupField, 1);
+            runningPayloadOffset += payloadSize;
+            runningPayloadLength += 2 + payloadSize;
+            pCurrentGroupField += 2;
+
+            if (groupField & (GPSGROUP_RAWMEAS >> 16))
+            {
+                packetInfo.gnss1RawMeasOffset = runningPayloadOffset - BinaryGroupLengths[3][16];
+            }
+        }
+	}
+
+	if (groupsPresent & BINARYGROUP_ATTITUDE)
+	{
+        size_t payloadSize = computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_ATTITUDE, stoh(*reinterpret_cast<const uint16_t*>(pCurrentGroupField)));
+        runningPayloadOffset += payloadSize;
+		runningPayloadLength += 2 + payloadSize;
 		pCurrentGroupField += 2;
 	}
 
-	if (groupsPresent & 0x10)
+	if (groupsPresent & BINARYGROUP_INS)
 	{
-		runningPayloadLength += 2 + computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_ATTITUDE, stoh(*reinterpret_cast<const uint16_t*>(pCurrentGroupField)));
-		pCurrentGroupField += 2;
-	}
-
-	if (groupsPresent & 0x20)
-	{
-		runningPayloadLength += 2 + computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_INS, stoh(*reinterpret_cast<const uint16_t*>(pCurrentGroupField)));
+        size_t payloadSize = computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_INS, stoh(*reinterpret_cast<const uint16_t*>(pCurrentGroupField)));
+        runningPayloadOffset += payloadSize;
+		runningPayloadLength += 2 + payloadSize;
 		pCurrentGroupField += 2;
 	}
 
 	if (groupsPresent & BINARYGROUP_GPS2)
 	{
-		runningPayloadLength += 2 + computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_GPS2, stoh(*reinterpret_cast<const uint16_t*>(pCurrentGroupField)));
+        uint16_t groupField = stoh(*reinterpret_cast<const uint16_t*>(pCurrentGroupField));
+        size_t payloadSize = computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_GPS2, groupField);
+        runningPayloadOffset += payloadSize;
+		runningPayloadLength += 2 + payloadSize;
 		pCurrentGroupField += 2;
+
+        if (groupField & GPSGROUP_SATINFO)
+        {
+            packetInfo.gnss2SatInfoOffset = runningPayloadOffset - BinaryGroupLengths[3][14];
+        }
+
+        if (groupField & 0x8000) // Extension bit is set
+        {
+            groupField = stoh(*reinterpret_cast<const uint16_t*>(pCurrentGroupField));
+            payloadSize = computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_GPS2, groupField, 1);
+            runningPayloadOffset += payloadSize;
+            runningPayloadLength += 2 + payloadSize;
+            pCurrentGroupField += 2;
+
+            if (groupField & (GPSGROUP_RAWMEAS >> 16))
+            {
+                packetInfo.gnss2RawMeasOffset = runningPayloadOffset - BinaryGroupLengths[3][16];
+            }
+        }
 	}
 
-	return runningPayloadLength + 2;	// Add 2 bytes for CRC.
+	packetInfo.binaryPacketLength = runningPayloadLength + 2;	// Add 2 bytes for CRC.
+
+    return packetInfo;
 }
 
-size_t Packet::computeNumOfBytesForBinaryGroupPayload(BinaryGroup group, uint16_t groupField)
+size_t Packet::computeNumOfBytesForBinaryGroupPayload(BinaryGroup group, uint16_t groupField, size_t extensionBits)
 {
 	size_t runningLength = 0;
 
@@ -3047,11 +3161,11 @@ size_t Packet::computeNumOfBytesForBinaryGroupPayload(BinaryGroup group, uint16_
 			break;
 	}
 
-	for (size_t i = 0; i < sizeof(uint16_t) * 8; i++)
+	for (size_t i = 0; i < sizeof(uint16_t) * 8 - 1; i++)
 	{
 		if ((groupField >> i) & 1)
 		{
-			runningLength += BinaryGroupLengths[groupIndex][i];
+			runningLength += BinaryGroupLengths[groupIndex][i + extensionBits * 16];
 		}
 	}
 
@@ -3158,7 +3272,7 @@ void Packet::parseUserTag(char* tag)
 	}
 
 	NEXT
-	
+
 	#if defined(_MSC_VER)
 		//Unable to use strcpy_s since we do not have length of the output array.
 		#pragma warning(push)
@@ -3185,7 +3299,7 @@ void Packet::parseModelNumber(char* productName)
 	}
 
 	NEXT
-	
+
 	#if defined(_MSC_VER)
 		//Unable to use strcpy_s since we do not have length of the output array.
 		#pragma warning(push)
@@ -3543,11 +3657,11 @@ void Packet::parseFilterBasicControl(uint8_t* magMode, uint8_t* extMagMode, uint
 	gyroLimit->z = ATOFF;
 }
 
-void Packet::parseHeaveConfiguration(	
-	float* initialWavePeriod, 
-	float* initialWaveAmplitude, 
+void Packet::parseHeaveConfiguration(
+	float* initialWavePeriod,
+	float* initialWaveAmplitude,
 	float* maxWavePeriod,
-	float* minWaveAmplitude,	
+	float* minWaveAmplitude,
 	float* delayedHeaveCutoffFreq,
 	float* heaveCutoffFreq,
 	float* heaveRateCutoffFreq)
@@ -3562,7 +3676,7 @@ void Packet::parseHeaveConfiguration(
 	*minWaveAmplitude = ATOFF; NEXT
 	*delayedHeaveCutoffFreq = ATOFF; NEXT
 	*heaveCutoffFreq = ATOFF; NEXT
-	*heaveRateCutoffFreq = ATOFF; 
+	*heaveRateCutoffFreq = ATOFF;
 }
 
 void Packet::parseVpeBasicControl(uint8_t* enable, uint8_t* headingMode, uint8_t* filteringMode, uint8_t* tuningMode)
@@ -3792,7 +3906,7 @@ void Packet::parseGpsConfiguration(uint8_t* mode, uint8_t* ppsSource, uint8_t* r
 	*ppsSource = ATOU8; NEXT
 	*rate = ATOU8; NEXT
 	NEXT
-	*antPow = ATOU8; 
+	*antPow = ATOU8;
 }
 
 void Packet::parseGpsAntennaOffset(vec3f* position)
@@ -4167,6 +4281,16 @@ void Packet::parseYawPitchRollTrueInertialAccelerationAndAngularRates(vec3f* yaw
 	gyro->x = ATOFF; NEXT
 	gyro->y = ATOFF; NEXT
 	gyro->z = ATOFF;
+}
+
+size_t Packet::getPacketLength()
+{
+    return _length;
+}
+
+size_t Packet::getCurExtractLoc()
+{
+    return _curExtractLoc;
 }
 
 }
