@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.4)
+cmake_minimum_required(VERSION 3.0.0)
 project(libvncxx CXX)
 
 set(CMAKE_SUPPRESS_REGENERATION TRUE)
@@ -119,7 +119,7 @@ add_library(libvncxx ${SOURCE})
 #	target_link_libraries(proglib-cpp-graphics PRIVATE GLEW_shared)
 #
 #
-#	
+#
 #
 #
 #endif()
