@@ -78,6 +78,8 @@ include_directories(
 
 add_library(libvncxx ${SOURCE})
 
+target_compile_features(libvncxx PRIVATE cxx_std_11)
+
 #add_subdirectory(examples/ez_async_data)
 #add_subdirectory(examples/getting_started)
 #add_subdirectory(examples/math)
