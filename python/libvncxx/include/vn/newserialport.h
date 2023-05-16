@@ -271,7 +271,7 @@ public:
 	/// is out of range.
 	/// \param aIndex The index of the port/baud pair to return.
 	/// \return A pair contining the port name and baudrate.
-	std::pair<std::string, std::uint32_t> getSensor(size_t aIndex);
+	std::pair<std::string, uint32_t> getSensor(size_t aIndex);
 	/// \brief Resets the searcher and removes all previous results.
     void reset();
     /// \brief Finds all available serial ports on the system and then searches them at various

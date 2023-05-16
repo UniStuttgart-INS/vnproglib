@@ -558,7 +558,7 @@ namespace xplat {
 				BinaryStartSentinal[0]);
 
 			// Check if this could be an ascii packet
-			if ((asciiStartItr != m_readBuffer.end()) && 
+			if ((asciiStartItr != m_readBuffer.end()) &&
 				(asciiStartItr._Ptr < binaryItr._Ptr) &&
 				(asciiEndItr != m_readBuffer.end()))
 			{
@@ -756,9 +756,9 @@ namespace xplat {
 		return m_isFinished ? m_validPorts.size() : 0;
     }
 
-	std::pair<std::string, std::uint32_t> NewSearcher::getSensor(size_t aIndex)
+	std::pair<std::string, uint32_t> NewSearcher::getSensor(size_t aIndex)
     {
-		return (m_isFinished && (aIndex < m_validPorts.size()) ? m_validPorts[aIndex] : std::pair<std::string, std::uint32_t>("", 0));
+		return (m_isFinished && (aIndex < m_validPorts.size()) ? m_validPorts[aIndex] : std::pair<std::string, uint32_t>("", 0));
     }
 
     void NewSearcher::reset()
